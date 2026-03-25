@@ -33,6 +33,10 @@ app.use("/events", eventsRoutes);
 app.use("/favorites", favoritesRoutes);
 app.use("/", metaRoutes);
 
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

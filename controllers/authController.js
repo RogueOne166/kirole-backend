@@ -9,6 +9,7 @@ const generateToken = (user) => {
   return jwt.sign(
     {
       id: user.id,
+      role: user.role,
       name: user.name,
       email: user.email,
     },
@@ -19,7 +20,7 @@ const generateToken = (user) => {
 
 const signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, companyName } = req.body;
 
     if (!name?.trim() || !email?.trim() || !password?.trim()) {
       return res.status(400).json({
@@ -29,9 +30,7 @@ const signup = async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existingUser = users.find(
-      (user) => user.email === normalizedEmail
-    );
+    const existingUser = users.find((user) => user.email === normalizedEmail);
 
     if (existingUser) {
       return res.status(400).json({
@@ -45,17 +44,25 @@ const signup = async (req, res) => {
       });
     }
 
+    const finalRole = role === "organizer" ? "organizer" : "user";
+    const finalName =
+      finalRole === "organizer" && companyName?.trim()
+        ? companyName.trim()
+        : name.trim();
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = {
       id: users.length ? users[users.length - 1].id + 1 : 1,
-      name: name.trim(),
-      slug: slugify(name),
+      name: finalName,
+      slug: slugify(finalName),
       email: normalizedEmail,
       password: hashedPassword,
+      role: finalRole,
+      companyName: finalRole === "organizer" ? companyName?.trim() || "" : "",
       favorites: {
-      	places: [],
-      	events: []
+        places: [],
+        events: [],
       },
       createdAt: new Date().toISOString(),
     };
@@ -72,6 +79,8 @@ const signup = async (req, res) => {
         name: newUser.name,
         slug: newUser.slug,
         email: newUser.email,
+        role: newUser.role,
+        companyName: newUser.companyName,
       },
     });
   } catch (error) {
@@ -119,6 +128,8 @@ const login = async (req, res) => {
         name: user.name,
         slug: user.slug,
         email: user.email,
+        role: user.role,
+        companyName: user.companyName || "",
       },
     });
   } catch (error) {

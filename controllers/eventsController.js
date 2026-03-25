@@ -1,9 +1,12 @@
 const events = require("../data/events");
+const slugify = require("../utils/slugify");
 
 const getAllEvents = (req, res) => {
   const { region, category, upcoming, page = 1, limit = 5 } = req.query;
 
-  let filteredEvents = [...events];
+  let filteredEvents = events.filter(
+    (event) => (event.status || "approved") === "approved"
+  );
 
   if (region) {
     filteredEvents = filteredEvents.filter(
@@ -54,10 +57,22 @@ const getEventById = (req, res) => {
     return res.status(404).json({ error: "Event not found" });
   }
 
+  if ((event.status || "approved") !== "approved") {
+    return res.status(404).json({ error: "Event not found" });
+  }
+
   res.status(200).json(event);
 };
 
 const createEvent = (req, res) => {
+  const user = req.user;
+
+  if (!user || user.role !== "organizer") {
+    return res.status(403).json({
+      error: "Only organizers can create events",
+    });
+  }
+
   const {
     name,
     category,
@@ -98,9 +113,19 @@ const createEvent = (req, res) => {
     });
   }
 
+  const baseSlug = slugify(name);
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (events.some((event) => event.slug === slug)) {
+    slug = `${baseSlug}-${counter}`;
+    counter += 1;
+  }
+
   const newEvent = {
     id: events.length ? events[events.length - 1].id + 1 : 1,
     name,
+    slug,
     category,
     region,
     description,
@@ -114,12 +139,16 @@ const createEvent = (req, res) => {
     date,
     featured: featured === true,
     image: image || "",
+    organizerId: user.id,
+    organizerName: user.companyName || user.name,
+    status: "pending",
+    createdAt: new Date().toISOString(),
   };
 
   events.push(newEvent);
 
   res.status(201).json({
-    message: "Event created successfully",
+    message: "Event submitted successfully and is pending approval",
     data: newEvent,
   });
 };
@@ -130,6 +159,19 @@ const updateEvent = (req, res) => {
 
   if (!event) {
     return res.status(404).json({ error: "Event not found" });
+  }
+
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const isOwner = event.organizerId === user.id;
+  const isAdmin = user.role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({ error: "You cannot update this event" });
   }
 
   const {
@@ -187,7 +229,21 @@ const updateEvent = (req, res) => {
     event.audience = audience;
   }
 
-  if (name !== undefined) event.name = name;
+  if (name !== undefined) {
+    event.name = name;
+
+    const baseSlug = slugify(name);
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (events.some((e) => e.slug === slug && e.id !== event.id)) {
+      slug = `${baseSlug}-${counter}`;
+      counter += 1;
+    }
+
+    event.slug = slug;
+  }
+
   if (category !== undefined) event.category = category;
   if (region !== undefined) event.region = region;
   if (description !== undefined) event.description = description;
@@ -196,8 +252,14 @@ const updateEvent = (req, res) => {
   if (featured !== undefined) event.featured = featured;
   if (image !== undefined) event.image = image;
 
+  if (!isAdmin) {
+    event.status = "pending";
+  }
+
   res.status(200).json({
-    message: "Event updated successfully",
+    message: isAdmin
+      ? "Event updated successfully"
+      : "Event updated and sent back for approval",
     data: event,
   });
 };
@@ -208,6 +270,20 @@ const deleteEvent = (req, res) => {
 
   if (index === -1) {
     return res.status(404).json({ error: "Event not found" });
+  }
+
+  const event = events[index];
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const isOwner = event.organizerId === user.id;
+  const isAdmin = user.role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({ error: "You cannot delete this event" });
   }
 
   const deletedEvent = events.splice(index, 1);
@@ -227,11 +303,15 @@ const searchEvents = (req, res) => {
 
   const query = q.toLowerCase();
 
-  const results = events.filter((event) =>
-    event.name.toLowerCase().includes(query) ||
-    event.category.toLowerCase().includes(query) ||
-    event.region.toLowerCase().includes(query) ||
-    event.description.toLowerCase().includes(query)
+  const results = events.filter(
+    (event) =>
+      (event.status || "approved") === "approved" &&
+      (
+        event.name.toLowerCase().includes(query) ||
+        event.category.toLowerCase().includes(query) ||
+        event.region.toLowerCase().includes(query) ||
+        event.description.toLowerCase().includes(query)
+      )
   );
 
   res.status(200).json(results);
@@ -240,7 +320,8 @@ const searchEvents = (req, res) => {
 const getPopularEvents = (req, res) => {
   const limit = Number(req.query.limit) || 4;
 
-  const popularEvents = [...events]
+  const popularEvents = events
+    .filter((event) => (event.status || "approved") === "approved")
     .sort((a, b) => {
       if (b.rating === a.rating) {
         return b.reviews - a.reviews;
@@ -256,11 +337,69 @@ const getEventBySlug = (req, res) => {
   const { slug } = req.params;
   const event = events.find((e) => e.slug === slug);
 
-  if (!event) {
+  if (!event || (event.status || "approved") !== "approved") {
     return res.status(404).json({ error: "Event not found" });
   }
 
   res.status(200).json(event);
+};
+
+const getMyEvents = (req, res) => {
+  const user = req.user;
+
+  if (!user || user.role !== "organizer") {
+    return res.status(403).json({ error: "Organizer access only" });
+  }
+
+  const myEvents = events
+    .filter((event) => event.organizerId === user.id)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  res.status(200).json(myEvents);
+};
+
+const approveEvent = (req, res) => {
+  const user = req.user;
+
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Admin only" });
+  }
+
+  const id = Number(req.params.id);
+  const event = events.find((e) => e.id === id);
+
+  if (!event) {
+    return res.status(404).json({ error: "Event not found" });
+  }
+
+  event.status = "approved";
+
+  res.status(200).json({
+    message: "Event approved successfully",
+    data: event,
+  });
+};
+
+const rejectEvent = (req, res) => {
+  const user = req.user;
+
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Admin only" });
+  }
+
+  const id = Number(req.params.id);
+  const event = events.find((e) => e.id === id);
+
+  if (!event) {
+    return res.status(404).json({ error: "Event not found" });
+  }
+
+  event.status = "rejected";
+
+  res.status(200).json({
+    message: "Event rejected successfully",
+    data: event,
+  });
 };
 
 module.exports = {
@@ -272,4 +411,7 @@ module.exports = {
   searchEvents,
   getPopularEvents,
   getEventBySlug,
+  getMyEvents,
+  approveEvent,
+  rejectEvent,
 };

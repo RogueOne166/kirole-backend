@@ -4,12 +4,11 @@ const router = express.Router();
 const {
   getCategories,
   getRegions,
-  getFeaturedPlaces,
+  getMetaData,
 } = require("../controllers/metaController");
 
+router.get("/meta", getMetaData);
 router.get("/categories", getCategories);
 router.get("/regions", getRegions);
-router.get("/featured", getFeaturedPlaces);
 
 module.exports = router;
-

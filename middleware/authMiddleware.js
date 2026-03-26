@@ -1,58 +1,65 @@
 const jwt = require("jsonwebtoken");
-const users = require("../data/users");
+const User = require("../models/User");
 
-const requireAuth = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "No token provided" });
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
     }
 
-    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "Not authorized, no token" });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = users.find((u) => u.id === decoded.id);
+    const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(401).json({ error: "User not found" });
     }
 
     req.user = {
-      id: user.id,
-      name: user.name,
-      slug: user.slug,
-      email: user.email,
+      id: user._id.toString(),
       role: user.role,
+      name: user.name,
+      email: user.email,
       companyName: user.companyName || "",
-      favorites: user.favorites || { places: [], events: [] },
-      createdAt: user.createdAt,
     };
 
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Invalid or expired token" });
+    return res.status(401).json({
+      error: "Not authorized, token failed",
+      details: error.message,
+    });
   }
 };
 
-const requireOrganizer = (req, res, next) => {
-  if (!req.user || req.user.role !== "organizer") {
-    return res.status(403).json({ error: "Organizer access only" });
+const adminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ error: "Admin only" });
   }
-
   next();
 };
 
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access only" });
+const organizerOnly = (req, res, next) => {
+  if (
+    !req.user ||
+    (req.user.role !== "organizer" && req.user.role !== "admin")
+  ) {
+    return res.status(403).json({ error: "Organizer only" });
   }
-
   next();
 };
 
 module.exports = {
-  requireAuth,
-  requireOrganizer,
-  requireAdmin,
+  protect,
+  adminOnly,
+  organizerOnly,
 };

@@ -1,36 +1,31 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const users = require("../data/users");
-const slugify = require("../utils/slugify");
-
-const JWT_SECRET = process.env.JWT_SECRET;
+const User = require("../models/User");
 
 const generateToken = (user) => {
   return jwt.sign(
     {
-      id: user.id,
+      id: user._id,
       role: user.role,
       name: user.name,
-      email: user.email,
+      companyName: user.companyName || "",
     },
-    JWT_SECRET,
+    process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
 
-const signup = async (req, res) => {
+const registerUser = async (req, res) => {
   try {
     const { name, email, password, role, companyName } = req.body;
 
-    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+    if (!name || !email || !password) {
       return res.status(400).json({
         error: "name, email, and password are required",
       });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const existingUser = users.find((user) => user.email === normalizedEmail);
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
 
     if (existingUser) {
       return res.status(400).json({
@@ -38,71 +33,46 @@ const signup = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Password must be at least 6 characters long",
-      });
-    }
-
-    const finalRole = role === "organizer" ? "organizer" : "user";
-    const finalName =
-      finalRole === "organizer" && companyName?.trim()
-        ? companyName.trim()
-        : name.trim();
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      id: users.length ? users[users.length - 1].id + 1 : 1,
-      name: finalName,
-      slug: slugify(finalName),
-      email: normalizedEmail,
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
       password: hashedPassword,
-      role: finalRole,
-      companyName: finalRole === "organizer" ? companyName?.trim() || "" : "",
-      favorites: {
-        places: [],
-        events: [],
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-
-    const token = generateToken(newUser);
+      role: role || "user",
+      companyName: companyName || "",
+    });
 
     res.status(201).json({
-      message: "User created successfully",
-      token,
+      message: "User registered successfully",
+      token: generateToken(user),
       user: {
-        id: newUser.id,
-        name: newUser.name,
-        slug: newUser.slug,
-        email: newUser.email,
-        role: newUser.role,
-        companyName: newUser.companyName,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName,
       },
     });
   } catch (error) {
     res.status(500).json({
-      error: "Server error during signup",
+      error: "Failed to register user",
+      details: error.message,
     });
   }
 };
 
-const login = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email?.trim() || !password?.trim()) {
+    if (!email || !password) {
       return res.status(400).json({
         error: "email and password are required",
       });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const user = users.find((u) => u.email === normalizedEmail);
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(401).json({
@@ -110,43 +80,54 @@ const login = async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordValid) {
+    if (!isMatch) {
       return res.status(401).json({
         error: "Invalid email or password",
       });
     }
 
-    const token = generateToken(user);
-
     res.status(200).json({
       message: "Login successful",
-      token,
+      token: generateToken(user),
       user: {
-        id: user.id,
+        _id: user._id,
         name: user.name,
-        slug: user.slug,
         email: user.email,
         role: user.role,
-        companyName: user.companyName || "",
+        companyName: user.companyName,
       },
     });
   } catch (error) {
     res.status(500).json({
-      error: "Server error during login",
+      error: "Failed to login",
+      details: error.message,
     });
   }
 };
 
-const getMe = (req, res) => {
-  res.status(200).json({
-    user: req.user,
-  });
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch user profile",
+      details: error.message,
+    });
+  }
 };
 
 module.exports = {
-  signup,
-  login,
+  registerUser,
+  loginUser,
   getMe,
 };

@@ -1,27 +1,48 @@
-const places = require("../data/places");
+const Place = require("../models/Place");
 
-const getCategories = (req, res) => {
-  const categories = [...new Set(places.map((place) => place.category))];
-
-  res.status(200).json(categories);
+const getCategories = async (req, res) => {
+  try {
+    const categories = await Place.distinct("category");
+    res.status(200).json(categories);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch categories",
+      details: error.message,
+    });
+  }
 };
 
-const getRegions = (req, res) => {
-  const regions = [...new Set(places.map((place) => place.region))];
-
-  res.status(200).json(regions);
+const getRegions = async (req, res) => {
+  try {
+    const regions = await Place.distinct("region");
+    res.status(200).json(regions);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch regions",
+      details: error.message,
+    });
+  }
 };
 
-const getFeaturedPlaces = (req, res) => {
-  const featuredPlaces = places.filter((place) => place.featured === true);
+const getMetaData = async (req, res) => {
+  try {
+    const categories = await Place.distinct("category");
+    const regions = await Place.distinct("region");
 
-  res.status(200).json(featuredPlaces);
+    res.status(200).json({
+      categories,
+      regions,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch meta data",
+      details: error.message,
+    });
+  }
 };
-
 
 module.exports = {
   getCategories,
   getRegions,
-  getFeaturedPlaces,
+  getMetaData,
 };
-

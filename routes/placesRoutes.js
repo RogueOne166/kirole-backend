@@ -13,16 +13,14 @@ const {
   getPlaceBySlug,
 } = require("../controllers/placesController");
 
-router.get("/", getAllPlaces);
 router.get("/search", searchPlaces);
 router.get("/nearby", getNearbyPlaces);
 router.get("/top-rated", getTopRatedPlaces);
-router.get("/slug/:slug", getPlaceBySlug); 
+router.get("/slug/:slug", getPlaceBySlug);
+router.get("/", getAllPlaces);
 router.get("/:id", getPlaceById);
 router.post("/", createPlace);
 router.put("/:id", updatePlace);
 router.delete("/:id", deletePlace);
 
-
 module.exports = router;
-

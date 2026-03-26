@@ -2,56 +2,35 @@ const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    slug: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    date: {
-      type: String,
-      required: true,
-    },
-    time: {
-      type: String,
-      default: "",
-    },
-    location: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    region: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    category: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    image: {
-      type: String,
-      default: "",
-    },
+    title: { type: String, required: true, trim: true },
+    slug: { type: String, required: true, unique: true, trim: true },
+    description: { type: String, required: true, trim: true },
+
+    date: { type: String, required: true },
+    time: { type: String, default: "" },
+    location: { type: String, default: "", trim: true },
+
+    region: { type: String, required: true, trim: true },
+    category: { type: String, required: true, trim: true },
+
+    image: { type: String, default: "" },
+    featured: { type: Boolean, default: false },
+
+    latitude: { type: Number },
+    longitude: { type: Number },
+
     price: {
       type: String,
-      default: "Free",
+      enum: ["free", "paid"],
+      default: "free",
     },
-    ticketLink: {
-      type: String,
-      default: "",
+
+    rating: { type: Number, default: 0 },
+    reviews: { type: Number, default: 0 },
+
+    audience: {
+      type: [String],
+      default: ["tourists", "locals"],
     },
 
     organizerId: {
@@ -59,9 +38,11 @@ const eventSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     organizerName: {
       type: String,
-      required: true,
+      default: "",
+      trim: true,
     },
 
     status: {

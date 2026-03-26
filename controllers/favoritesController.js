@@ -1,83 +1,157 @@
-const users = require("../data/users");
-const places = require("../data/places");
-const events = require("../data/events");
+const User = require("../models/User");
+const Place = require("../models/Place");
+const Event = require("../models/Event");
 
-// GET ALL FAVORITES
-const getFavorites = (req, res) => {
-  const user = users.find((u) => u.id === req.user.id);
+const getFavorites = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate("favoritePlaces")
+      .populate("favoriteEvents");
 
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({
+      places: user.favoritePlaces,
+      events: user.favoriteEvents,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch favorites",
+      details: error.message,
+    });
   }
-
-  const favoritePlaces = user.favorites.places
-    .map((id) => places.find((p) => p.id === id))
-    .filter(Boolean);
-
-  const favoriteEvents = user.favorites.events
-    .map((id) => events.find((e) => e.id === id))
-    .filter(Boolean);
-
-  res.status(200).json({
-    places: favoritePlaces,
-    events: favoriteEvents,
-  });
 };
 
-// ADD PLACE
-const addFavoritePlace = (req, res) => {
-  const user = users.find((u) => u.id === req.user.id);
-  const placeId = Number(req.params.placeId);
+const addFavoritePlace = async (req, res) => {
+  try {
+    const { placeId } = req.params;
 
-  if (!user) return res.status(404).json({ error: "User not found" });
+    const user = await User.findById(req.user.id);
+    const place = await Place.findById(placeId);
 
-  if (user.favorites.places.includes(placeId)) {
-    return res.status(400).json({ error: "Already in favorites" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    const exists = user.favoritePlaces.some((id) => id.toString() === placeId);
+
+    if (!exists) {
+      user.favoritePlaces.push(placeId);
+      await user.save();
+    }
+
+    await user.populate("favoritePlaces");
+
+    res.status(200).json({
+      message: "Place added to favorites",
+      places: user.favoritePlaces,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to add favorite place",
+      details: error.message,
+    });
   }
-
-  user.favorites.places.push(placeId);
-
-  res.status(200).json({ message: "Place added to favorites" });
 };
 
-// REMOVE PLACE
-const removeFavoritePlace = (req, res) => {
-  const user = users.find((u) => u.id === req.user.id);
-  const placeId = Number(req.params.placeId);
+const removeFavoritePlace = async (req, res) => {
+  try {
+    const { placeId } = req.params;
 
-  user.favorites.places = user.favorites.places.filter(
-    (id) => id !== placeId
-  );
+    const user = await User.findById(req.user.id);
 
-  res.status(200).json({ message: "Place removed from favorites" });
-};
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-// ADD EVENT
-const addFavoriteEvent = (req, res) => {
-  const user = users.find((u) => u.id === req.user.id);
-  const eventId = Number(req.params.eventId);
+    user.favoritePlaces = user.favoritePlaces.filter(
+      (id) => id.toString() !== placeId
+    );
 
-  if (!user) return res.status(404).json({ error: "User not found" });
+    await user.save();
+    await user.populate("favoritePlaces");
 
-  if (user.favorites.events.includes(eventId)) {
-    return res.status(400).json({ error: "Already in favorites" });
+    res.status(200).json({
+      message: "Place removed from favorites",
+      places: user.favoritePlaces,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to remove favorite place",
+      details: error.message,
+    });
   }
-
-  user.favorites.events.push(eventId);
-
-  res.status(200).json({ message: "Event added to favorites" });
 };
 
-// REMOVE EVENT
-const removeFavoriteEvent = (req, res) => {
-  const user = users.find((u) => u.id === req.user.id);
-  const eventId = Number(req.params.eventId);
+const addFavoriteEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
 
-  user.favorites.events = user.favorites.events.filter(
-    (id) => id !== eventId
-  );
+    const user = await User.findById(req.user.id);
+    const event = await Event.findById(eventId);
 
-  res.status(200).json({ message: "Event removed from favorites" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const exists = user.favoriteEvents.some((id) => id.toString() === eventId);
+
+    if (!exists) {
+      user.favoriteEvents.push(eventId);
+      await user.save();
+    }
+
+    await user.populate("favoriteEvents");
+
+    res.status(200).json({
+      message: "Event added to favorites",
+      events: user.favoriteEvents,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to add favorite event",
+      details: error.message,
+    });
+  }
+};
+
+const removeFavoriteEvent = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.favoriteEvents = user.favoriteEvents.filter(
+      (id) => id.toString() !== eventId
+    );
+
+    await user.save();
+    await user.populate("favoriteEvents");
+
+    res.status(200).json({
+      message: "Event removed from favorites",
+      events: user.favoriteEvents,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to remove favorite event",
+      details: error.message,
+    });
+  }
 };
 
 module.exports = {

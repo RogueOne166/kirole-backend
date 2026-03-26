@@ -1,6 +1,6 @@
-const places = require("../data/places");
+const Place = require("../models/Place");
 
-//Calculate the distance of the distance between 2 coordinates
+// Calculate the distance between 2 coordinates
 const toRadians = (degrees) => {
   return degrees * (Math.PI / 180);
 };
@@ -23,334 +23,415 @@ const calculateDistance = (lat1, lng1, lat2, lng2) => {
   return earthRadiusKm * c;
 };
 
-
 // Get all places/activities
-const getAllPlaces = (req, res) => {
-  const { category, region, type, page = 1, limit = 10 } = req.query;
+const getAllPlaces = async (req, res) => {
+  try {
+    const { category, region, type, page = 1, limit = 10 } = req.query;
 
-  let filteredPlaces = [...places];
+    const filter = {};
 
-  if (category) {
-    filteredPlaces = filteredPlaces.filter(
-      (place) => place.category.toLowerCase() === category.toLowerCase()
-    );
+    if (category) {
+      filter.category = new RegExp(`^${category}$`, "i");
+    }
+
+    if (region) {
+      filter.region = new RegExp(`^${region}$`, "i");
+    }
+
+    if (type) {
+      filter.type = new RegExp(`^${type}$`, "i");
+    }
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const total = await Place.countDocuments(filter);
+    const places = await Place.find(filter).skip(skip).limit(limitNumber);
+
+    res.status(200).json({
+      total,
+      page: pageNumber,
+      limit: limitNumber,
+      data: places,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch places",
+      details: error.message,
+    });
   }
-
-  if (region) {
-    filteredPlaces = filteredPlaces.filter(
-      (place) => place.region.toLowerCase() === region.toLowerCase()
-    );
-  }
-
-  if (type) {
-    filteredPlaces = filteredPlaces.filter(
-      (place) => place.type.toLowerCase() === type.toLowerCase()
-    );
-  }
-
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-
-  const start = (pageNumber - 1) * limitNumber;
-  const end = start + limitNumber;
-
-  const paginated = filteredPlaces.slice(start, end);
-
-  res.status(200).json({
-    total: filteredPlaces.length,
-    page: pageNumber,
-    limit: limitNumber,
-    data: paginated,
-  });
 };
 
-// Get one place by id
-const getPlaceById = (req, res) => {
-  const id = Number(req.params.id);
-  const place = places.find((p) => p.id === id);
+// Get one place by MongoDB id
+const getPlaceById = async (req, res) => {
+  try {
+    const place = await Place.findById(req.params.id);
 
-  if (!place) {
-    return res.status(404).json({ error: "Place not found" });
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    res.status(200).json(place);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch place",
+      details: error.message,
+    });
   }
-
-  res.status(200).json(place);
 };
 
 // Create a new place/event/activity
-const createPlace = (req, res) => {
-  const {
-    name,
-    category,
-    region,
-    description,
-    latitude,
-    longitude,
-    price,
-    audience,
-    type,
-    date,
-  } = req.body;
+const createPlace = async (req, res) => {
+  try {
+    const {
+      name,
+      slug,
+      category,
+      region,
+      description,
+      latitude,
+      longitude,
+      price,
+      rating,
+      reviews,
+      audience,
+      type,
+      featured,
+      image,
+      date,
+      time,
+      location,
+    } = req.body;
 
-  if (
-  !name?.trim() ||
-  !category?.trim() ||
-  !region?.trim() ||
-  !description?.trim()
-) {
-  return res.status(400).json({
-    error: "name, category, region, and description must not be empty",
-  });
-}
-
-if (price && price !== "free" && price !== "paid") {
-  return res.status(400).json({
-    error: 'price must be either "free" or "paid"',
-  });
-}
-
-if (rating !== undefined) {
-  const parsedRating = Number(rating);
-  if (Number.isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
-    return res.status(400).json({
-      error: "rating must be a number between 0 and 5",
-    });
-  }
-}
-
-if (reviews !== undefined) {
-  const parsedReviews = Number(reviews);
-  if (Number.isNaN(parsedReviews) || parsedReviews < 0) {
-    return res.status(400).json({
-      error: "reviews must be a number greater than or equal to 0",
-    });
-  }
-}
-
-if (image !== undefined && !image.trim()) {
-  return res.status(400).json({
-    error: "image must not be empty",
-  });
-}
-
-  const newPlace = {
-    id: places.length ? places[places.length - 1].id + 1 : 1,
-    name,
-    category,
-    region,
-    description: description || "",
-    latitude: lat,
-    longitude: lng,
-    price: price || "unknown",
-    audience: Array.isArray(audience) ? audience : ["locals", "tourists"],
-    type,
-  };
-
-  if (type === "event" && date) {
-    newPlace.date = date;
-  }
-
-  places.push(newPlace);
-
-  res.status(201).json({
-    message: "Place created successfully",
-    data: newPlace,
-  });
-};
-
-const updatePlace = (req, res) => {
-  const id = Number(req.params.id);
-  const place = places.find((p) => p.id === id);
-
-  if (!place) {
-    return res.status(404).json({ error: "Place not found" });
-  }
-
-  const {
-    name,
-    category,
-    region,
-    description,
-    latitude,
-    longitude,
-    price,
-    audience,
-    type,
-    date,
-  } = req.body;
-
-  if (latitude !== undefined) {
-    const lat = Number(latitude);
-
-    if (Number.isNaN(lat)) {
+    if (
+      !name?.trim() ||
+      !category?.trim() ||
+      !region?.trim() ||
+      !description?.trim()
+    ) {
       return res.status(400).json({
-        error: "latitude must be a valid number",
+        error: "name, category, region, and description must not be empty",
       });
     }
 
-    place.latitude = lat;
-  }
-
-  if (longitude !== undefined) {
-    const lng = Number(longitude);
-
-    if (Number.isNaN(lng)) {
+    if (price && price !== "free" && price !== "paid") {
       return res.status(400).json({
-        error: "longitude must be a valid number",
+        error: 'price must be either "free" or "paid"',
       });
     }
 
-    place.longitude = lng;
-  }
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
 
-  if (type !== undefined) {
-    if (type !== "place" && type !== "event") {
+    if (Number.isNaN(parsedLatitude) || Number.isNaN(parsedLongitude)) {
       return res.status(400).json({
-        error: 'type must be either "place" or "event"',
+        error: "latitude and longitude must be valid numbers",
       });
     }
 
-    place.type = type;
-  }
-
-  if (audience !== undefined) {
-    if (!Array.isArray(audience)) {
-      return res.status(400).json({
-        error: "audience must be an array",
-      });
-    }
-
-    place.audience = audience;
-  }
-
-  if (name !== undefined) place.name = name;
-  if (category !== undefined) place.category = category;
-  if (region !== undefined) place.region = region;
-  if (description !== undefined) place.description = description;
-  if (price !== undefined) place.price = price;
-
-  if (date !== undefined) {
-    if (place.type === "event") {
-      place.date = date;
-    } else {
-      delete place.date;
-    }
-  }
-
-  if (place.type !== "event") {
-    delete place.date;
-  }
-
-  res.status(200).json({
-    message: "Place updated successfully",
-    data: place,
-  });
-};
-
-const deletePlace = (req, res) => {
-  const id = Number(req.params.id);
-  const index = places.findIndex((p) => p.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({ error: "Place not found" });
-  }
-
-  const deletedPlace = places.splice(index, 1);
-
-  res.status(200).json({
-    message: "Place deleted successfully",
-    data: deletedPlace[0],
-  });
-};
-
-const searchPlaces = (req, res) => {
-  const query = req.query.q;
-
-  if (!query) {
-    return res.status(400).json({
-      error: "Search query is required"
-    });
-  }
-
-  const q = query.toLowerCase();
-
-  const results = places.filter((place) =>
-    place.name.toLowerCase().includes(q) ||
-    place.category.toLowerCase().includes(q) ||
-    place.region.toLowerCase().includes(q) ||
-    place.description.toLowerCase().includes(q)
-  );
-
-  res.status(200).json(results);
-};
-
-//find the nearest place
-const getNearbyPlaces = (req, res) => {
-  const { lat, lng, radius } = req.query;
-
-  if (lat === undefined || lng === undefined || radius === undefined) {
-    return res.status(400).json({
-      error: "lat, lng, and radius are required",
-    });
-  }
-
-  const userLat = Number(lat);
-  const userLng = Number(lng);
-  const searchRadius = Number(radius);
-
-  if (
-    Number.isNaN(userLat) ||
-    Number.isNaN(userLng) ||
-    Number.isNaN(searchRadius)
-  ) {
-    return res.status(400).json({
-      error: "lat, lng, and radius must be valid numbers",
-    });
-  }
-
-  const nearbyPlaces = places
-    .map((place) => {
-      const distance = calculateDistance(
-        userLat,
-        userLng,
-        place.latitude,
-        place.longitude
-      );
-
-      return {
-        ...place,
-        distance: Number(distance.toFixed(2)),
-      };
-    })
-    .filter((place) => place.distance <= searchRadius)
-    .sort((a, b) => a.distance - b.distance);
-
-  res.status(200).json(nearbyPlaces);
-};
-
-const getTopRatedPlaces = (req, res) => {
-  const limit = Number(req.query.limit) || 6;
-
-  const topPlaces = [...places]
-    .sort((a, b) => {
-      if (b.rating === a.rating) {
-        return b.reviews - a.reviews;
+    if (rating !== undefined) {
+      const parsedRating = Number(rating);
+      if (Number.isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+        return res.status(400).json({
+          error: "rating must be a number between 0 and 5",
+        });
       }
-      return b.rating - a.rating;
-    })
-    .slice(0, limit);
+    }
 
-  res.status(200).json(topPlaces);
+    if (reviews !== undefined) {
+      const parsedReviews = Number(reviews);
+      if (Number.isNaN(parsedReviews) || parsedReviews < 0) {
+        return res.status(400).json({
+          error: "reviews must be a number greater than or equal to 0",
+        });
+      }
+    }
+
+    if (image !== undefined && !String(image).trim()) {
+      return res.status(400).json({
+        error: "image must not be empty",
+      });
+    }
+
+    const newPlace = new Place({
+      name,
+      slug,
+      category,
+      region,
+      description,
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
+      price: price || "free",
+      rating: rating !== undefined ? Number(rating) : 0,
+      reviews: reviews !== undefined ? Number(reviews) : 0,
+      audience: Array.isArray(audience) ? audience : ["locals", "tourists"],
+      type: type || "place",
+      featured: featured ?? false,
+      image: image || "",
+      date,
+      time,
+      location,
+    });
+
+    const savedPlace = await newPlace.save();
+
+    res.status(201).json({
+      message: "Place created successfully",
+      data: savedPlace,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to create place",
+      details: error.message,
+    });
+  }
 };
 
-const getPlaceBySlug = (req, res) => {
-  const { slug } = req.params;
-  const place = places.find((p) => p.slug === slug);
+const updatePlace = async (req, res) => {
+  try {
+    const place = await Place.findById(req.params.id);
 
-  if (!place) {
-    return res.status(404).json({ error: "Place not found" });
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    const {
+      name,
+      slug,
+      category,
+      region,
+      description,
+      latitude,
+      longitude,
+      price,
+      rating,
+      reviews,
+      audience,
+      type,
+      featured,
+      image,
+      date,
+      time,
+      location,
+    } = req.body;
+
+    if (latitude !== undefined) {
+      const lat = Number(latitude);
+      if (Number.isNaN(lat)) {
+        return res.status(400).json({
+          error: "latitude must be a valid number",
+        });
+      }
+      place.latitude = lat;
+    }
+
+    if (longitude !== undefined) {
+      const lng = Number(longitude);
+      if (Number.isNaN(lng)) {
+        return res.status(400).json({
+          error: "longitude must be a valid number",
+        });
+      }
+      place.longitude = lng;
+    }
+
+    if (price !== undefined && price !== "free" && price !== "paid") {
+      return res.status(400).json({
+        error: 'price must be either "free" or "paid"',
+      });
+    }
+
+    if (rating !== undefined) {
+      const parsedRating = Number(rating);
+      if (Number.isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+        return res.status(400).json({
+          error: "rating must be a number between 0 and 5",
+        });
+      }
+      place.rating = parsedRating;
+    }
+
+    if (reviews !== undefined) {
+      const parsedReviews = Number(reviews);
+      if (Number.isNaN(parsedReviews) || parsedReviews < 0) {
+        return res.status(400).json({
+          error: "reviews must be a number greater than or equal to 0",
+        });
+      }
+      place.reviews = parsedReviews;
+    }
+
+    if (audience !== undefined) {
+      if (!Array.isArray(audience)) {
+        return res.status(400).json({
+          error: "audience must be an array",
+        });
+      }
+      place.audience = audience;
+    }
+
+    if (name !== undefined) place.name = name;
+    if (slug !== undefined) place.slug = slug;
+    if (category !== undefined) place.category = category;
+    if (region !== undefined) place.region = region;
+    if (description !== undefined) place.description = description;
+    if (price !== undefined) place.price = price;
+    if (type !== undefined) place.type = type;
+    if (featured !== undefined) place.featured = featured;
+    if (image !== undefined) place.image = image;
+    if (date !== undefined) place.date = date;
+    if (time !== undefined) place.time = time;
+    if (location !== undefined) place.location = location;
+
+    const updatedPlace = await place.save();
+
+    res.status(200).json({
+      message: "Place updated successfully",
+      data: updatedPlace,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to update place",
+      details: error.message,
+    });
   }
+};
 
-  res.status(200).json(place);
+const deletePlace = async (req, res) => {
+  try {
+    const deletedPlace = await Place.findByIdAndDelete(req.params.id);
+
+    if (!deletedPlace) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    res.status(200).json({
+      message: "Place deleted successfully",
+      data: deletedPlace,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to delete place",
+      details: error.message,
+    });
+  }
+};
+
+const searchPlaces = async (req, res) => {
+  try {
+    const query = req.query.q;
+
+    if (!query) {
+      return res.status(400).json({
+        error: "Search query is required",
+      });
+    }
+
+    const results = await Place.find({
+      $or: [
+        { name: { $regex: query, $options: "i" } },
+        { category: { $regex: query, $options: "i" } },
+        { region: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } },
+      ],
+    });
+
+    res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to search places",
+      details: error.message,
+    });
+  }
+};
+
+// Find the nearest place
+const getNearbyPlaces = async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+
+    if (lat === undefined || lng === undefined || radius === undefined) {
+      return res.status(400).json({
+        error: "lat, lng, and radius are required",
+      });
+    }
+
+    const userLat = Number(lat);
+    const userLng = Number(lng);
+    const searchRadius = Number(radius);
+
+    if (
+      Number.isNaN(userLat) ||
+      Number.isNaN(userLng) ||
+      Number.isNaN(searchRadius)
+    ) {
+      return res.status(400).json({
+        error: "lat, lng, and radius must be valid numbers",
+      });
+    }
+
+    const places = await Place.find();
+
+    const nearbyPlaces = places
+      .map((place) => {
+        const distance = calculateDistance(
+          userLat,
+          userLng,
+          place.latitude,
+          place.longitude
+        );
+
+        return {
+          ...place.toObject(),
+          distance: Number(distance.toFixed(2)),
+        };
+      })
+      .filter((place) => place.distance <= searchRadius)
+      .sort((a, b) => a.distance - b.distance);
+
+    res.status(200).json(nearbyPlaces);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch nearby places",
+      details: error.message,
+    });
+  }
+};
+
+const getTopRatedPlaces = async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 6;
+
+    const topPlaces = await Place.find()
+      .sort({ rating: -1, reviews: -1 })
+      .limit(limit);
+
+    res.status(200).json(topPlaces);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch top rated places",
+      details: error.message,
+    });
+  }
+};
+
+const getPlaceBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const place = await Place.findOne({ slug });
+
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    res.status(200).json(place);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch place by slug",
+      details: error.message,
+    });
+  }
 };
 
 module.exports = {
@@ -364,5 +445,3 @@ module.exports = {
   getNearbyPlaces,
   getTopRatedPlaces,
 };
-
-

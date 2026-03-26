@@ -16,23 +16,23 @@ const {
 } = require("../controllers/eventsController");
 
 const {
-  requireAuth,
-  requireOrganizer,
-  requireAdmin,
+  protect,
+  adminOnly,
+  organizerOnly,
 } = require("../middleware/authMiddleware");
 
 router.get("/search", searchEvents);
 router.get("/popular", getPopularEvents);
-router.get("/my-events", requireAuth, requireOrganizer, getMyEvents);
+router.get("/my-events", protect, organizerOnly, getMyEvents);
 router.get("/slug/:slug", getEventBySlug);
 router.get("/", getAllEvents);
 router.get("/:id", getEventById);
 
-router.post("/", requireAuth, requireOrganizer, createEvent);
-router.put("/:id", requireAuth, updateEvent);
-router.delete("/:id", requireAuth, deleteEvent);
+router.post("/", protect, organizerOnly, createEvent);
+router.put("/:id", protect, organizerOnly, updateEvent);
+router.delete("/:id", protect, organizerOnly, deleteEvent);
 
-router.put("/approve/:id", requireAuth, requireAdmin, approveEvent);
-router.put("/reject/:id", requireAuth, requireAdmin, rejectEvent);
+router.put("/approve/:id", protect, adminOnly, approveEvent);
+router.put("/reject/:id", protect, adminOnly, rejectEvent);
 
 module.exports = router;

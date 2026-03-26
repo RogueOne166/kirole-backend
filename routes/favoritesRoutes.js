@@ -8,13 +8,8 @@ const {
   removeFavorite,
 } = require("../controllers/favoritesController");
 
-// GET ALL FAVORITES
 router.get("/", protect, getFavorites);
-
-// ADD FAVORITE
 router.post("/places/:placeId", protect, addFavorite);
-
-// REMOVE FAVORITE
 router.delete("/places/:placeId", protect, removeFavorite);
 
 module.exports = router;

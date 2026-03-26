@@ -4,10 +4,13 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 
+// Routes
 const authRoutes = require("./routes/authRoutes");
 const placesRoutes = require("./routes/placesRoutes");
 const eventsRoutes = require("./routes/eventsRoutes");
 const favoritesRoutes = require("./routes/favoritesRoutes");
+const homeRoutes = require("./routes/homeRoutes");
+const metaRoutes = require("./routes/metaRoutes");
 
 const app = express();
 
@@ -22,10 +25,12 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.use("/auth", authRoutes);        // 🔥 THIS FIXES YOUR SIGNUP
+app.use("/auth", authRoutes);
 app.use("/places", placesRoutes);
 app.use("/events", eventsRoutes);
 app.use("/favorites", favoritesRoutes);
+app.use("/home", homeRoutes);
+app.use("/meta", metaRoutes);
 
 // Test route
 app.get("/", (req, res) => {

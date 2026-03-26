@@ -1,22 +1,20 @@
 const express = require("express");
 const router = express.Router();
 
-const { protect } = require("../middleware/authMiddleware");
-
+const protect = require("../middleware/authMiddleware");
 const {
   getFavorites,
-  addFavoritePlace,
-  removeFavoritePlace,
-  addFavoriteEvent,
-  removeFavoriteEvent,
+  addFavorite,
+  removeFavorite,
 } = require("../controllers/favoritesController");
 
+// GET ALL FAVORITES
 router.get("/", protect, getFavorites);
 
-router.post("/places/:placeId", protect, addFavoritePlace);
-router.delete("/places/:placeId", protect, removeFavoritePlace);
+// ADD FAVORITE
+router.post("/places/:placeId", protect, addFavorite);
 
-router.post("/events/:eventId", protect, addFavoriteEvent);
-router.delete("/events/:eventId", protect, removeFavoriteEvent);
+// REMOVE FAVORITE
+router.delete("/places/:placeId", protect, removeFavorite);
 
 module.exports = router;

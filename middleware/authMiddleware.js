@@ -1,65 +1,21 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
 
-const protect = async (req, res, next) => {
+const protect = (req, res, next) => {
+  let token = req.headers.authorization;
+
+  if (!token || !token.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Not authorized, no token" });
+  }
+
   try {
-    let token = null;
-
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-
-    if (!token) {
-      return res.status(401).json({ error: "Not authorized, no token" });
-    }
-
+    token = token.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
-
-    req.user = {
-      id: user._id.toString(),
-      role: user.role,
-      name: user.name,
-      email: user.email,
-      companyName: user.companyName || "",
-    };
-
+    req.user = { id: decoded.id };
     next();
   } catch (error) {
-    return res.status(401).json({
-      error: "Not authorized, token failed",
-      details: error.message,
-    });
+    return res.status(401).json({ message: "Not authorized, invalid token" });
   }
 };
 
-const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ error: "Admin only" });
-  }
-  next();
-};
-
-const organizerOnly = (req, res, next) => {
-  if (
-    !req.user ||
-    (req.user.role !== "organizer" && req.user.role !== "admin")
-  ) {
-    return res.status(403).json({ error: "Organizer only" });
-  }
-  next();
-};
-
-module.exports = {
-  protect,
-  adminOnly,
-  organizerOnly,
-};
+module.exports = protect;

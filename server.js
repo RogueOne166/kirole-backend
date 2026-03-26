@@ -2,53 +2,38 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./config/db");
+const mongoose = require("mongoose");
 
+const authRoutes = require("./routes/authRoutes");
 const placesRoutes = require("./routes/placesRoutes");
 const eventsRoutes = require("./routes/eventsRoutes");
-const metaRoutes = require("./routes/metaRoutes");
-const homeRoutes = require("./routes/homeRoutes");
-const authRoutes = require("./routes/authRoutes");
 const favoritesRoutes = require("./routes/favoritesRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-connectDB();
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
-
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({ message: "Mauritius travel and outings backend is running" });
-});
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
-app.use("/auth", authRoutes);
-app.use("/home", homeRoutes);
+// Routes
+app.use("/auth", authRoutes);        // 🔥 THIS FIXES YOUR SIGNUP
 app.use("/places", placesRoutes);
 app.use("/events", eventsRoutes);
 app.use("/favorites", favoritesRoutes);
-app.use("/", metaRoutes);
 
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
+// Test route
+app.get("/", (req, res) => {
+  res.json({ message: "Backend is running 🚀" });
 });
+
+// Start server
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

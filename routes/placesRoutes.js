@@ -2,25 +2,14 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  getAllPlaces,
-  getPlaceById,
-  createPlace,
-  updatePlace,
-  deletePlace,
-  searchPlaces,
-  getNearbyPlaces,
-  getTopRatedPlaces,
+  getPlaces,
   getPlaceBySlug,
 } = require("../controllers/placesController");
 
-router.get("/search", searchPlaces);
-router.get("/nearby", getNearbyPlaces);
-router.get("/top-rated", getTopRatedPlaces);
-router.get("/slug/:slug", getPlaceBySlug);
-router.get("/", getAllPlaces);
-router.get("/:id", getPlaceById);
-router.post("/", createPlace);
-router.put("/:id", updatePlace);
-router.delete("/:id", deletePlace);
+// GET ALL PLACES
+router.get("/", getPlaces);
+
+// GET ONE PLACE BY SLUG
+router.get("/:slug", getPlaceBySlug);
 
 module.exports = router;

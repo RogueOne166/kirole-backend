@@ -21,11 +21,13 @@ const registerUser = async (req, res) => {
 
     if (!name || !email || !password) {
       return res.status(400).json({
-        error: "name, email, and password are required",
+        error: "Name, email, and password are required",
       });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(400).json({
@@ -36,11 +38,11 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email: email.toLowerCase(),
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
       role: role || "user",
-      companyName: companyName || "",
+      companyName: companyName?.trim() || "",
     });
 
     res.status(201).json({
@@ -55,6 +57,7 @@ const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("registerUser error:", error);
     res.status(500).json({
       error: "Failed to register user",
       details: error.message,
@@ -68,11 +71,13 @@ const loginUser = async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({
-        error: "email and password are required",
+        error: "Email and password are required",
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(401).json({
@@ -100,6 +105,7 @@ const loginUser = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("loginUser error:", error);
     res.status(500).json({
       error: "Failed to login",
       details: error.message,
@@ -119,6 +125,7 @@ const getMe = async (req, res) => {
 
     res.status(200).json(user);
   } catch (error) {
+    console.error("getMe error:", error);
     res.status(500).json({
       error: "Failed to fetch user profile",
       details: error.message,

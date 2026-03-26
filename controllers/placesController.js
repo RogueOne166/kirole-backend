@@ -1,31 +1,45 @@
-const Place = require("../models/Place");
+const Event = require("../models/Event");
 
-// GET ALL PLACES
-const getPlaces = async (req, res) => {
+// GET ALL EVENTS
+const getEvents = async (req, res) => {
   try {
-    const places = await Place.find();
-    res.json(places);
+    const events = await Event.find();
+    res.status(200).json(events);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch places" });
+    console.error("getEvents error:", error);
+    res.status(500).json({
+      error: "Failed to fetch events",
+      details: error.message,
+    });
   }
 };
 
-// GET PLACE BY SLUG
-const getPlaceBySlug = async (req, res) => {
+// GET EVENT BY SLUG OR ID
+const getEventBySlug = async (req, res) => {
   try {
-    const place = await Place.findOne({ slug: req.params.slug });
+    const { slug } = req.params;
 
-    if (!place) {
-      return res.status(404).json({ error: "Place not found" });
+    let event = await Event.findOne({ slug });
+
+    if (!event && slug.match(/^[0-9a-fA-F]{24}$/)) {
+      event = await Event.findById(slug);
     }
 
-    res.json(place);
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    res.status(200).json(event);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch place" });
+    console.error("getEventBySlug error:", error);
+    res.status(500).json({
+      error: "Failed to fetch event",
+      details: error.message,
+    });
   }
 };
 
 module.exports = {
-  getPlaces,
-  getPlaceBySlug,
+  getEvents,
+  getEventBySlug,
 };

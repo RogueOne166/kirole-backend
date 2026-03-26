@@ -5,9 +5,18 @@ const Place = require("../models/Place");
 const getFavorites = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate("favorites");
-    res.json(user.favorites);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user.favorites);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch favorites" });
+    console.error("getFavorites error:", error);
+    res.status(500).json({
+      message: "Failed to fetch favorites",
+      details: error.message,
+    });
   }
 };
 
@@ -17,15 +26,32 @@ const addFavorite = async (req, res) => {
     const { placeId } = req.params;
 
     const user = await User.findById(req.user.id);
+    const place = await Place.findById(placeId);
 
-    if (!user.favorites.includes(placeId)) {
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!place) {
+      return res.status(404).json({ message: "Place not found" });
+    }
+
+    const alreadyExists = user.favorites.some(
+      (id) => id.toString() === placeId
+    );
+
+    if (!alreadyExists) {
       user.favorites.push(placeId);
       await user.save();
     }
 
-    res.json({ message: "Added to favorites" });
+    res.status(200).json({ message: "Added to favorites" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to add favorite" });
+    console.error("addFavorite error:", error);
+    res.status(500).json({
+      message: "Failed to add favorite",
+      details: error.message,
+    });
   }
 };
 
@@ -36,15 +62,23 @@ const removeFavorite = async (req, res) => {
 
     const user = await User.findById(req.user.id);
 
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     user.favorites = user.favorites.filter(
       (id) => id.toString() !== placeId
     );
 
     await user.save();
 
-    res.json({ message: "Removed from favorites" });
+    res.status(200).json({ message: "Removed from favorites" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to remove favorite" });
+    console.error("removeFavorite error:", error);
+    res.status(500).json({
+      message: "Failed to remove favorite",
+      details: error.message,
+    });
   }
 };
 

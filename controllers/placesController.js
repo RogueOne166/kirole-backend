@@ -21,7 +21,7 @@ const getPlaceBySlug = async (req, res) => {
 
     let place = await Place.findOne({ slug });
 
-    if (!place && slug.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!place && /^[0-9a-fA-F]{24}$/.test(slug)) {
       place = await Place.findById(slug);
     }
 

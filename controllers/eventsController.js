@@ -21,7 +21,7 @@ const getEventBySlug = async (req, res) => {
 
     let event = await Event.findOne({ slug });
 
-    if (!event && slug.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!event && /^[0-9a-fA-F]{24}$/.test(slug)) {
       event = await Event.findById(slug);
     }
 

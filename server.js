@@ -11,6 +11,7 @@ const eventsRoutes = require("./routes/eventsRoutes");
 const favoritesRoutes = require("./routes/favoritesRoutes");
 const homeRoutes = require("./routes/homeRoutes");
 const metaRoutes = require("./routes/metaRoutes");
+const organizerRoutes = require("./routes/organizerRoutes");
 
 const app = express();
 
@@ -31,6 +32,8 @@ app.use("/events", eventsRoutes);
 app.use("/favorites", favoritesRoutes);
 app.use("/home", homeRoutes);
 app.use("/meta", metaRoutes);
+app.use("/organizer", organizerRoutes);
+
 
 // Test route
 app.get("/", (req, res) => {

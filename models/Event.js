@@ -2,20 +2,56 @@ const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema(
   {
-    id: Number,
-    title: String,        // optional now
-    name: String,         // in case your data uses name instead of title
-    placeName: String,
+    title: {
+      type: String,
+      required: true,
+    },
+
+    name: {
+      type: String,
+    },
+
+    placeName: {
+      type: String,
+    },
+
     category: String,
     region: String,
     description: String,
+
     date: String,
     time: String,
+
     price: String,
+
     image: String,
+
     featured: Boolean,
+
     slug: String,
-    organizerId: String   // NOT required anymore
+
+    //  IMPORTANT FIX
+    organizerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    // ADD THESE FOR DASHBOARD
+    status: {
+      type: String,
+      default: "Draft",
+    },
+
+    ticketsSold: {
+      type: Number,
+      default: 0,
+    },
+
+    location: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

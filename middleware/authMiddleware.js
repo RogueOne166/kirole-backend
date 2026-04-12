@@ -11,9 +11,15 @@ const protect = (req, res, next) => {
     token = token.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = { id: decoded.id };
+    req.user = {
+      id: decoded.id,
+      email: decoded.email || null,
+      role: decoded.role || null,
+    };
+
     next();
   } catch (error) {
+    console.error("Auth middleware error:", error.message);
     return res.status(401).json({ message: "Not authorized, invalid token" });
   }
 };
